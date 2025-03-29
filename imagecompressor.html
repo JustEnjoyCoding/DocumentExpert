@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Image Compressor</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
+  <style>
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .glassmorphism {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .gradient-border {
+      position: relative;
+      background: linear-gradient(45deg, #6366f1, #ec4899);
+      padding: 2px;
+      border-radius: 1rem;
+    }
+
+    .drop-zone-active {
+      border-color: #4F46E5;
+      background: rgba(79, 70, 229, 0.1);
+    }
+
+    .before-after-container {
+      position: relative;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="dark:bg-gray-900 transition-colors duration-300">
+  <div class="container mx-auto px-4 pt-24">
+    <div class="max-w-3xl mx-auto glassmorphism rounded-2xl p-8">
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent text-center mb-4">
+        Advanced Image Compressor
+      </h1>
+
+      <!-- Drag & Drop Zone -->
+      <div id="dropZone" class="gradient-border p-1 mb-8 group transition-all duration-300">
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-8 text-center">
+          <input type="file" id="uploadInput" class="hidden" accept="image/*">
+          <label for="uploadInput" class="cursor-pointer space-y-6">
+            <div class="text-6xl animate-bounce">📁</div>
+            <div class="space-y-2">
+              <h2 class="text-2xl font-semibold dark:text-white">Drag & Drop Images</h2>
+              <p class="text-gray-500 dark:text-gray-400">Supports JPEG, PNG, WEBP</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!--  <div>
+          <label class="block text-sm font-medium dark:text-gray-300 mb-2">Quality Level</label>
+          <input type="range" id="quality" min="1" max="100" value="80" 
+                class="w-full bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+          <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+            <span>Smaller File</span>
+            <span>Better Quality</span>
+          </div>
+        </div> -->
+
+
+        <div>
+            <label class="block text-sm font-medium dark:text-gray-300 mb-2">Quality Level</label>
+            <input type="range" id="quality" min="1" max="100" value="80" 
+                  class="w-full bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+            <div class="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+              <span>Smaller File</span>
+              <span>Better Quality</span>
+            </div>
+            <div id="qualityPercentage" class="quality-percentage">80%</div>
+        </div>
+
+
+
+
+        
+        <div>
+          <label class="block text-sm font-medium dark:text-gray-300 mb-2">Output Format</label>
+          <select id="format" class="w-full bg-gray-100 dark:bg-gray-700 rounded-xl p-2">
+            <option value="original">Original</option>
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/png">PNG</option>
+            <option value="image/webp">WEBP</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Preview Section -->
+      <div id="previews" class="grid grid-cols-1 gap-6">
+        <div class="before-after-container rounded-xl overflow-hidden">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <h3 class="text-center dark:text-white mb-2">Original</h3>
+              <img id="originalPreview" class="w-full h-64 object-contain rounded-xl">
+            </div>
+            <div>
+              <h3 class="text-center dark:text-white mb-2">Compressed</h3>
+              <img id="compressedPreview" class="w-full h-64 object-contain rounded-xl">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress & Actions -->
+      <div class="mt-8 space-y-4">
+        <div class="relative pt-4">
+          <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
+            <div id="progressBar" class="h-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-300" style="width: 0%">
+              <div id="progressText" class="absolute right-0 -top-6 text-sm text-purple-600 dark:text-purple-400 font-medium"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex gap-4 justify-center">
+          <button onclick="compressImage()" 
+                  class="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl hover:opacity-90 transition-opacity">
+            Compress Now
+          </button>
+          <a id="downloadButton" href="#" download 
+             class="px-8 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition-colors hidden">
+            Download
+          </a>
+        </div>
+
+        <div></div>
+        <div></div>
+        <div></div>
+
+
+        <div class="prose dark:prose-invert max-w-none" style="padding-top: 35px;">
+            <h2 class="text-2xl font-semibold mb-4">About Image Compression</h2>
+            <p class="text-gray-600 dark:text-gray-300">
+              Our online image compressor helps you reduce file sizes while maintaining visual quality. Ideal for:
+            </p>
+            <ul class="list-disc pl-6 mt-2">
+              <li>Website optimization</li>
+              <li>Email attachments</li>
+              <li>Social media sharing</li>
+              <li>Storage space saving</li>
+            </ul>
+          </div>
+
+
+
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    class ImageCompressor {
+      constructor() {
+        this.originalFile = null;
+        this.compressedFile = null;
+        this.initializeEventListeners();
+      }
+
+      initializeEventListeners() {
+
+        // Quality slider percentage update
+        const qualityInput = document.getElementById('quality');
+        qualityInput.addEventListener('input', (e) => {
+          document.getElementById('qualityPercentage').textContent = `${e.target.value}%`;
+        });
+
+
+
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('uploadInput');
+
+        // Drag & Drop handlers
+        ['dragenter', 'dragover'].forEach(event => {
+          dropZone.addEventListener(event, this.highlightDropZone);
+        });
+
+        ['dragleave', 'drop'].forEach(event => {
+          dropZone.addEventListener(event, this.unhighlightDropZone);
+        });
+
+        dropZone.addEventListener('drop', (e) => this.handleDrop(e));
+        fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+      }
+
+      highlightDropZone(e) {
+        e.preventDefault();
+        document.getElementById('dropZone').classList.add('drop-zone-active');
+      }
+
+      unhighlightDropZone(e) {
+        e.preventDefault();
+        document.getElementById('dropZone').classList.remove('drop-zone-active');
+      }
+
+      async handleDrop(e) {
+        e.preventDefault();
+        this.unhighlightDropZone(e);
+        const files = Array.from(e.dataTransfer.files);
+        this.processFile(files[0]);
+      }
+
+      async handleFileSelect(e) {
+        const files = Array.from(e.target.files);
+        this.processFile(files[0]);
+      }
+
+      async processFile(file) {
+        if (!file?.type.startsWith('image/')) {
+          alert('Please upload an image file');
+          return;
+        }
+
+        this.originalFile = file;
+        this.previewImage(file);
+      }
+
+      previewImage(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          document.getElementById('originalPreview').src = e.target.result;
+          document.getElementById('compressedPreview').src = '';
+          document.getElementById('downloadButton').classList.add('hidden');
+        };
+        reader.readAsDataURL(file);
+      }
+
+      async compressImage() {
+        if (!this.originalFile) return;
+
+        this.updateProgress(0);
+        const options = {
+          maxSizeMB: (100 - document.getElementById('quality').value) / 100,
+          useWebWorker: true,
+          fileType: document.getElementById('format').value,
+          onProgress: (progress) => this.updateProgress(progress * 100)
+        };
+
+        try {
+          this.compressedFile = await imageCompression(this.originalFile, options);
+          this.previewCompressedImage();
+          this.showDownloadButton();
+          this.updateProgress(100);
+        } catch (error) {
+          console.error('Compression error:', error);
+          alert('Compression failed');
+          this.updateProgress(0);
+        }
+      }
+
+      previewCompressedImage() {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          document.getElementById('compressedPreview').src = e.target.result;
+        };
+        reader.readAsDataURL(this.compressedFile);
+      }
+
+      showDownloadButton() {
+        const downloadButton = document.getElementById('downloadButton');
+        const url = URL.createObjectURL(this.compressedFile);
+        downloadButton.href = url;
+        downloadButton.download = `compressed_${this.originalFile.name}`;
+        downloadButton.classList.remove('hidden');
+      }
+
+      updateProgress(progress) {
+        const progressPercent = Math.round(progress);
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        progressBar.style.width = `${progressPercent}%`;
+        progressText.textContent = `${progressPercent}%`;
+        
+        if(progressPercent === 100) {
+          progressBar.classList.add('from-green-50', 'to-green-40');
+          progressBar.classList.remove('from-purple-60', 'to-pink-50');
+        } else {
+          progressBar.classList.remove('from-green-50', 'to-green-40');
+          progressBar.classList.add('from-purple-60', 'to-pink-500');
+        }
+      }
+    }
+
+    // Initialize compressor
+    const compressor = new ImageCompressor();
+
+    // Global function for button click
+    window.compressImage = () => compressor.compressImage();
+  </script>
+</body>
+</html>
