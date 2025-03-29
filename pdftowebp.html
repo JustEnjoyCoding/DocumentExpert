@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF to WEBP Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes gradient-wave {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #ff6b6b 100%);
+            background-size: 400% 400%;
+            animation: gradient-wave 15s ease infinite;
+        }
+
+        .drop-zone {
+            border: 2px dashed #ccc;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.active {
+            border-color: #667eea;
+            background-color: rgba(102, 126, 234, 0.1);
+        }
+
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+
+        .tool-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <nav class="bg-white border-b border-gray-200 fixed w-full z-50">
+        <!-- Navigation remains same as original -->
+    </nav>
+
+    <main class="container mx-auto px-4 pt-32 pb-16">
+        <div class="tool-card rounded-xl p-8 max-w-3xl mx-auto">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4 text-center">PDF to WEBP Converter</h1>
+            <p class="text-gray-600 mb-8 text-center">Transform PDF pages into optimized WebP images with adjustable quality and batch processing</p>
+
+            <div class="space-y-6">
+                <div class="drop-zone rounded-xl p-8 text-center cursor-pointer" id="dropZone">
+                    <input type="file" id="fileInput" accept="application/pdf" class="hidden" />
+                    <div class="space-y-4">
+                        <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p class="text-gray-600">Drag & drop PDF file or <span class="text-blue-600 font-medium">browse files</span></p>
+                        <p class="text-sm text-gray-500">Max file size: 25MB</p>
+                    </div>
+                </div>
+
+                <div class="settings-card bg-gray-50 rounded-lg p-4 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Quality (1-100)</label>
+                        <input type="range" id="quality" min="1" max="100" value="80" class="w-full range-sm" />
+                        <div class="flex justify-between text-sm text-gray-500">
+                            <span>Smaller File</span>
+                            <span>Better Quality</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Pages to Convert</label>
+                        <input type="text" id="pageRange" placeholder="e.g., 1-3,5" class="w-full p-2 border rounded-md" />
+                    </div>
+                </div>
+
+                <div class="progress-bar bg-gray-200 rounded-full h-3 hidden">
+                    <div class="bg-blue-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button id="convertAll" class="bg-blue-600 text-white px-6 py-3 rounded-full font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Convert All Pages
+                    </button>
+                    <button id="convertSelected" class="bg-purple-600 text-white px-6 py-3 rounded-full font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Convert Selected Pages
+                    </button>
+                </div>
+
+                <div id="errorMessage" class="text-red-600 text-center hidden"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const convertAll = document.getElementById('convertAll');
+        const convertSelected = document.getElementById('convertSelected');
+        const progressBar = document.querySelector('.progress-bar > div');
+        const pageRange = document.getElementById('pageRange');
+        const qualityInput = document.getElementById('quality');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let pdfDoc = null;
+        let currentFile = null;
+
+        // Drag & Drop Handling
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('active');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('active');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') handleFile(file);
+        });
+
+        // File Input Handling
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        async function handleFile(file) {
+            try {
+                if (file.size > 25 * 1024 * 1024) throw new Error('File size exceeds 25MB limit');
+                currentFile = file;
+                
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    const typedarray = new Uint8Array(reader.result);
+                    pdfDoc = await pdfjsLib.getDocument(typedarray).promise;
+                    
+                    convertAll.disabled = false;
+                    convertSelected.disabled = false;
+                    document.querySelector('.progress-bar').classList.remove('hidden');
+                };
+                reader.readAsArrayBuffer(file);
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        function parsePageRange(range, maxPages) {
+            const pages = new Set();
+            const parts = range.split(',');
+            
+            for (const part of parts) {
+                if (part.includes('-')) {
+                    const [start, end] = part.split('-').map(Number);
+                    for (let i = start; i <= (end || maxPages); i++) pages.add(i);
+                } else if (part) {
+                    pages.add(Number(part));
+                }
+            }
+            
+            return Array.from(pages).filter(p => p > 0 && p <= maxPages);
+        }
+
+        async function convertPages(pages) {
+            const zip = new JSZip();
+            const quality = qualityInput.value / 100;
+            
+            for (let i = 0; i < pages.length; i++) {
+                const pageNum = pages[i];
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 3 });
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                await page.render({ 
+                    canvasContext: canvas.getContext('2d'), 
+                    viewport 
+                }).promise;
+
+                const blob = await new Promise(resolve => 
+                    canvas.toBlob(resolve, 'image/webp', quality)
+                );
+                
+                zip.file(`page-${pageNum}.webp`, blob);
+                updateProgress((i + 1) / pages.length);
+            }
+            
+            return zip;
+        }
+
+        function updateProgress(percentage) {
+            progressBar.style.width = `${Math.round(percentage * 100)}%`;
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            setTimeout(() => errorMessage.classList.add('hidden'), 5000);
+        }
+
+        // Conversion Handlers
+        convertAll.addEventListener('click', async () => {
+            const pages = Array.from({ length: pdfDoc.numPages }, (_, i) => i + 1);
+            const zip = await convertPages(pages);
+            const blob = await zip.generateAsync({ type: 'blob' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = currentFile.name.replace('.pdf', '') + '-converted.zip';
+            link.click();
+        });
+
+        convertSelected.addEventListener('click', async () => {
+            const pages = parsePageRange(pageRange.value, pdfDoc.numPages);
+            if (!pages.length) return showError('Invalid page range');
+            
+            const zip = await convertPages(pages);
+            const blob = await zip.generateAsync({ type: 'blob' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = currentFile.name.replace('.pdf', '') + '-selected-pages.zip';
+            link.click();
+        });
+    </script>
+</body>
+</html>

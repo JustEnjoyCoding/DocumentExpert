@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Advanced PDF to EXCEL Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.0/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles-confetti@2.12.0/tsparticles.confetti.bundle.min.js"></script>
+    <style>
+        @keyframes gradient-wave {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .gradient-border {
+            position: relative;
+            background: linear-gradient(45deg, #6366f1, #ec4899, #f59e0b);
+            padding: 2px;
+            border-radius: 1rem;
+        }
+
+        .gradient-border::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: inherit;
+            border-radius: inherit;
+            z-index: -1;
+            filter: blur(20px);
+            opacity: 0.4;
+        }
+
+        .table-preview {
+            max-height: 300px;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+
+        .page-thumbnail {
+            transition: transform 0.2s ease;
+        }
+
+        .page-thumbnail:hover {
+            transform: scale(1.05);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900">
+    <div class="container mx-auto px-4 py-20 mt-16">
+        <div class="gradient-border max-w-6xl mx-auto rounded-xl bg-white dark:bg-gray-800">
+            <div class="rounded-xl bg-white dark:bg-gray-800 p-8">
+                <h1 class="text-4xl font-bold text-gray-800 dark:text-white mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Advanced PDF to Excel Converter
+                </h1>
+
+                <!-- File Upload Section -->
+                <div class="space-y-8">
+                    <div id="dropZone" class="border-4 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center mb-8 transition-all duration-300 hover:border-blue-400 dark:hover:border-purple-500 bg-gradient-to-br from-gray-50/50 to-white/50 dark:from-gray-900/50 dark:to-gray-800/50">
+                        <input type="file" id="fileInput" accept="application/pdf" class="hidden" multiple />
+                        <label for="fileInput" class="cursor-pointer">
+                            <div class="flex flex-col items-center space-y-4">
+                                <div class="p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                                    <svg class="w-16 h-16 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                </div>
+                                <p class="text-gray-600 dark:text-gray-300 text-lg">Drag and drop PDF files or <span class="text-blue-600 dark:text-blue-400 font-semibold">browse</span></p>
+                                <p class="text-sm text-gray-400">Supports multiple files • Max 25MB each</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- File Preview Thumbnails -->
+                    <div id="filePreviews" class="grid grid-cols-2 md:grid-cols-3 gap-4 hidden"></div>
+
+                    <!-- Conversion Options -->
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Page Range</label>
+                                <div class="flex items-center gap-4">
+                                    <input type="number" id="startPage" class="w-24 p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" min="1" placeholder="Start">
+                                    <span class="text-gray-400">to</span>
+                                    <input type="number" id="endPage" class="w-24 p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" placeholder="End">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Output Format</label>
+                                <select id="formatSelect" class="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                                    <option value="xlsx">Excel Workbook (.xlsx)</option>
+                                    <option value="csv">CSV (.csv)</option>
+                                    <option value="ods">OpenDocument (.ods)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Advanced Options -->
+                        <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Advanced Settings</h3>
+                                <button type="button" class="text-blue-600 dark:text-blue-400 text-sm">Show Advanced</button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 hidden" id="advancedOptions">
+                                <div>
+                                    <label class="flex items-center space-x-2">
+                                        <input type="checkbox" class="rounded border-gray-300" id="mergeFiles">
+                                        <span class="text-gray-700 dark:text-gray-300">Merge files</span>
+                                    </label>
+                                </div>
+                                <div>
+                                    <label class="flex items-center space-x-2">
+                                        <input type="checkbox" class="rounded border-gray-300" id="preserveFormatting">
+                                        <span class="text-gray-700 dark:text-gray-300">Preserve formatting</span>
+                                    </label>
+                                </div>
+                                <div>
+                                    <label class="flex items-center space-x-2">
+                                        <input type="checkbox" class="rounded border-gray-300" id="extractImages">
+                                        <span class="text-gray-700 dark:text-gray-300">Extract images</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress & Actions -->
+                    <div class="space-y-6">
+                        <div id="progressContainer" class="hidden">
+                            <div class="flex justify-between mb-2">
+                                <span class="text-sm font-medium text-blue-600 dark:text-blue-400">Conversion Progress</span>
+                                <span class="text-sm text-gray-500 dark:text-gray-400" id="progressPercentage">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                                <div id="progressFill" class="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button id="convertButton" disabled class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none disabled:cursor-not-allowed">
+                                <span class="flex items-center gap-2">
+                                    <svg id="convertSpinner" class="hidden w-5 h-5 animate-spin" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                    </svg>
+                                    Convert Selected Files
+                                </span>
+                            </button>
+                            <button id="resetButton" class="w-full sm:w-auto px-8 py-3.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                                Reset All
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const convertButton = document.getElementById('convertButton');
+        const dropZone = document.getElementById('dropZone');
+        const filePreviews = document.getElementById('filePreviews');
+        let files = [];
+
+        // Enhanced Drag & Drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-400', 'dark:border-purple-500', 'bg-blue-50/50');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-blue-400', 'dark:border-purple-500', 'bg-blue-50/50');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-400', 'dark:border-purple-500', 'bg-blue-50/50');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        async function handleFiles(newFiles) {
+            const validFiles = Array.from(newFiles).filter(file => 
+                file.type === 'application/pdf' && file.size <= 25 * 1024 * 1024
+            );
+
+            if (validFiles.length === 0) {
+                Swal.fire('Invalid Files', 'Please upload valid PDF files (max 25MB each)', 'error');
+                return;
+            }
+
+            files = [...files, ...validFiles];
+            updateFilePreviews();
+            convertButton.disabled = false;
+        }
+
+        function updateFilePreviews() {
+            filePreviews.innerHTML = '';
+            filePreviews.classList.remove('hidden');
+
+            files.forEach((file, index) => {
+                const preview = document.createElement('div');
+                preview.className = 'relative group bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600';
+                preview.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1 truncate">
+                            <p class="text-gray-700 dark:text-gray-200 truncate">${file.name}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">${(file.size/1024/1024).toFixed(2)}MB</p>
+                        </div>
+                        <button class="text-red-500 hover:text-red-700 ml-2" onclick="removeFile(${index})">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                filePreviews.appendChild(preview);
+            });
+        }
+
+        window.removeFile = (index) => {
+            files.splice(index, 1);
+            updateFilePreviews();
+            if (files.length === 0) convertButton.disabled = true;
+        };
+
+        // Conversion Logic
+        convertButton.addEventListener('click', async () => {
+            if (files.length === 0) return;
+
+            try {
+                convertButton.disabled = true;
+                document.getElementById('progressContainer').classList.remove('hidden');
+                const convertSpinner = document.getElementById('convertSpinner');
+                convertSpinner.classList.remove('hidden');
+
+                const totalFiles = files.length;
+                let processedFiles = 0;
+
+                for (const file of files) {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+                    
+                    const wb = XLSX.utils.book_new();
+                    const totalPages = pdfDoc.numPages;
+                    
+                    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                        const page = await pdfDoc.getPage(pageNum);
+                        const content = await page.getTextContent();
+                        const tableData = enhancedTableParser(content.items);
+                        
+                        if (tableData.length > 0) {
+                            const ws = XLSX.utils.aoa_to_sheet(tableData);
+                            XLSX.utils.book_append_sheet(wb, ws, `Page ${pageNum}`);
+                        }
+                        
+                        updateProgress((processedFiles + (pageNum / totalPages)) / totalFiles);
+                    }
+                    
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    await saveAs(new Blob([wbout], { type: 'application/octet-stream' }), `${file.name.replace('.pdf', '')}_converted.xlsx`);
+                    
+                    processedFiles++;
+                    updateProgress(processedFiles / totalFiles);
+                }
+
+                // Celebration effect
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#3B82F6', '#8B5CF6', '#EC4899']
+                });
+
+                Swal.fire('Success!', `${files.length} files converted successfully!`, 'success');
+            } catch (error) {
+                Swal.fire('Error', error.message || 'Conversion failed. Please try again.', 'error');
+            } finally {
+                convertButton.disabled = false;
+                document.getElementById('progressContainer').classList.add('hidden');
+                convertSpinner.classList.add('hidden');
+            }
+        });
+
+        function updateProgress(percentage) {
+            const progress = Math.min(1, Math.max(0, percentage));
+            const progressFill = document.getElementById('progressFill');
+            const progressPercentage = document.getElementById('progressPercentage');
+            
+            progressFill.style.width = `${progress * 100}%`;
+            progressPercentage.textContent = `${Math.round(progress * 100)}%`;
+        }
+
+        function enhancedTableParser(textItems) {
+            // Improved table detection logic
+            const tableData = [];
+            let currentRow = [];
+            let lastY = null;
+
+            textItems.sort((a, b) => {
+                const yDiff = b.transform[5] - a.transform[5];
+                return yDiff !== 0 ? yDiff : a.transform[4] - b.transform[4];
+            });
+
+            textItems.forEach(item => {
+                if (lastY === null) lastY = item.transform[5];
+                
+                if (Math.abs(item.transform[5] - lastY) > 5) { // New row
+                    if (currentRow.length > 0) tableData.push(currentRow);
+                    currentRow = [item.str];
+                    lastY = item.transform[5];
+                } else { // Same row
+                    currentRow.push(item.str);
+                }
+            });
+
+            if (currentRow.length > 0) tableData.push(currentRow);
+            return tableData;
+        }
+
+        // Reset Functionality
+        document.getElementById('resetButton').addEventListener('click', () => {
+            files = [];
+            fileInput.value = '';
+            filePreviews.classList.add('hidden');
+            convertButton.disabled = true;
+            document.getElementById('progressContainer').classList.add('hidden');
+            document.getElementById('progressFill').style.width = '0%';
+        });
+
+        // Helper function to save files
+        async function saveAs(blob, filename) {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 100);
+        }
+    </script>
+</body>
+</html>
